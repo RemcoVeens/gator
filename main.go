@@ -1,11 +1,15 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 
 	"github.com/RemcoVeens/gator/internal/commands"
 	"github.com/RemcoVeens/gator/internal/config"
+	"github.com/RemcoVeens/gator/internal/database"
+
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -23,9 +27,13 @@ func main() {
 	stat := commands.NewState(&conf)
 
 	comms := commands.NewCommands()
+	db, err := sql.Open("postgres", stat.Config.DBUrl)
+	if err != nil {
+		fmt.Println("could not connect to db")
+		os.Exit(1)
+	}
+	stat.DB = database.New(db)
 
-	fmt.Println("we good bro")
-	fmt.Println("args:", args)
 	err = comms.Run(&stat, comm)
 	if err != nil {
 		os.Exit(1)
