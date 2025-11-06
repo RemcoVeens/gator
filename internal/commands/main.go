@@ -52,6 +52,7 @@ func NewCommands() commands {
 	comm.command = make(map[string]func(*state, command) error)
 	comm.Register("login", handlerLogin)
 	comm.Register("register", handlerRegister)
+	comm.Register("reset", handlerReset)
 	return comm
 }
 
@@ -88,5 +89,12 @@ func handlerRegister(s *state, cmd command) error {
 	}
 	s.Config.SetUser(user.Name.String)
 	fmt.Printf("user: '%s' has been created, at %v \n", user.Name.String, user.CreatedAt)
+	return nil
+}
+func handlerReset(s *state, cmd command) error {
+	err := s.DB.DeleteAllUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("could not reset db: %w", err)
+	}
 	return nil
 }
