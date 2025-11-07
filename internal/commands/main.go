@@ -8,6 +8,7 @@ import (
 
 	"github.com/RemcoVeens/gator/internal/config"
 	"github.com/RemcoVeens/gator/internal/database"
+	"github.com/RemcoVeens/gator/internal/feed"
 	"github.com/google/uuid"
 )
 
@@ -53,6 +54,8 @@ func NewCommands() commands {
 	comm.Register("login", handlerLogin)
 	comm.Register("register", handlerRegister)
 	comm.Register("reset", handlerReset)
+	comm.Register("users", handlerUsers)
+	comm.Register("agg", handlerAgg)
 	return comm
 }
 
@@ -72,7 +75,6 @@ func handlerLogin(s *state, cmd command) error {
 	fmt.Printf("user: %v has been login\n", user.Name.String)
 	return nil
 }
-
 func handlerRegister(s *state, cmd command) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("please provide a name to register")
@@ -96,5 +98,31 @@ func handlerReset(s *state, cmd command) error {
 	if err != nil {
 		return fmt.Errorf("could not reset db: %w", err)
 	}
+	return nil
+}
+func handlerUsers(s *state, cmd command) error {
+	users, err := s.DB.GetUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("could not get users:\n%w", err)
+	}
+	for _, user := range users {
+		user_name := user.Name.String
+		if user_name == s.Config.CurentUserName {
+			fmt.Println(user_name, "(current)")
+		} else {
+			fmt.Println(user_name)
+		}
+	}
+
+	return nil
+}
+func handlerAgg(s *state, cmd command) error {
+	url := "https://www.wagslane.dev/index.xml"
+	Feed, err := feed.FetchFeed(context.Background(), url)
+	if err != nil {
+		return err
+	}
+	fmt.Println(*Feed)
+
 	return nil
 }
