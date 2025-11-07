@@ -56,6 +56,8 @@ func NewCommands() commands {
 	comm.Register("reset", handlerReset)
 	comm.Register("users", handlerUsers)
 	comm.Register("agg", handlerAgg)
+	comm.Register("addfeed", handlerAddFeed)
+
 	return comm
 }
 
@@ -124,5 +126,34 @@ func handlerAgg(s *state, cmd command) error {
 	}
 	fmt.Println(*Feed)
 
+	return nil
+}
+func handlerAddFeed(s *state, cmd command) error {
+	if len(cmd.Args) != 2 {
+		return fmt.Errorf("please provide a name and url to add a feed")
+	}
+	name := cmd.Args[0]
+	url := cmd.Args[1]
+	fmt.Printf("current user: %s\n", s.Config.CurentUserName)
+	user, err := s.DB.GetUser(context.Background(), sql.NullString{
+		String: s.Config.CurentUserName,
+		Valid:  true,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Println("ID:", user.ID)
+	feed, err := s.DB.CreateFeed(context.Background(), database.CreateFeedParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      name,
+		Url:       url,
+		UserID:    user.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("could not insert feed %v: \n\r%w", name, err)
+	}
+	fmt.Printf("feed: '%s' has been created, at %v \n", feed.Name, feed.CreatedAt)
 	return nil
 }
