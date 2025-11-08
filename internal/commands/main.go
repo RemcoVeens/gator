@@ -158,6 +158,17 @@ func handlerAddFeed(s *state, cmd command) error {
 		return fmt.Errorf("could not insert feed %v: \n\r%w", name, err)
 	}
 	fmt.Printf("feed: '%s' has been created, at %v \n", feed.Name, feed.CreatedAt)
+	_, err = s.DB.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		UserID:    user.ID,
+		FeedID:    feed.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("could not follow: %w", err)
+	}
+	fmt.Printf("feed: %s is now followd by you (%s)\n", feed.Name, user.Name.String)
 	return nil
 }
 func handlerFeeds(s *state, cmd command) error {
