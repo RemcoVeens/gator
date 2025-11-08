@@ -123,6 +123,42 @@ func (q *Queries) CreateFeedFollow(ctx context.Context, arg CreateFeedFollowPara
 	return i, err
 }
 
+const getFeedFollowsByUser = `-- name: GetFeedFollowsByUser :many
+SELECT f.name,f.id,u.name FROM users u
+    INNER JOIN feed_follows ff ON u.id = ff.user_id
+    INNER JOIN feeds f ON ff.feed_id = f.id
+    WHERE u.id = $1
+`
+
+type GetFeedFollowsByUserRow struct {
+	Name   string
+	ID     uuid.UUID
+	Name_2 sql.NullString
+}
+
+func (q *Queries) GetFeedFollowsByUser(ctx context.Context, id uuid.UUID) ([]GetFeedFollowsByUserRow, error) {
+	rows, err := q.db.QueryContext(ctx, getFeedFollowsByUser, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetFeedFollowsByUserRow
+	for rows.Next() {
+		var i GetFeedFollowsByUserRow
+		if err := rows.Scan(&i.Name, &i.ID, &i.Name_2); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getFeedFromUrl = `-- name: GetFeedFromUrl :one
 SELECT id, created_at, updated_at, name, url, user_id FROM feeds WHERE feeds.url = $1
 `
@@ -161,60 +197,6 @@ func (q *Queries) GetFeeds(ctx context.Context) ([]Feed, error) {
 			&i.Name,
 			&i.Url,
 			&i.UserID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getFeedFollowsByUser = `-- name: getFeedFollowsByUser :many
-SELECT f.id, f.created_at, f.updated_at, f.name, f.url, f.user_id, u.id, u.created_at, u.updated_at, u.name FROM users u
-    INNER JOIN feed_follows ff ON u.id = ff.user_id
-    INNER JOIN feeds f ON ff.feed_id = f.id
-    WHERE u.id = $1
-`
-
-type getFeedFollowsByUserRow struct {
-	ID          uuid.UUID
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	Name        string
-	Url         string
-	UserID      uuid.UUID
-	ID_2        uuid.UUID
-	CreatedAt_2 time.Time
-	UpdatedAt_2 time.Time
-	Name_2      sql.NullString
-}
-
-func (q *Queries) getFeedFollowsByUser(ctx context.Context, id uuid.UUID) ([]getFeedFollowsByUserRow, error) {
-	rows, err := q.db.QueryContext(ctx, getFeedFollowsByUser, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []getFeedFollowsByUserRow
-	for rows.Next() {
-		var i getFeedFollowsByUserRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Name,
-			&i.Url,
-			&i.UserID,
-			&i.ID_2,
-			&i.CreatedAt_2,
-			&i.UpdatedAt_2,
-			&i.Name_2,
 		); err != nil {
 			return nil, err
 		}

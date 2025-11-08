@@ -59,6 +59,7 @@ func NewCommands() commands {
 	comm.Register("addfeed", handlerAddFeed)
 	comm.Register("feeds", handlerFeeds)
 	comm.Register("follow", handlerFollow)
+	comm.Register("following", handlerFollowing)
 
 	return comm
 }
@@ -200,5 +201,25 @@ func handlerFollow(s *state, cmd command) error {
 		return fmt.Errorf("could not follow feed %v: \n\r%w", feed.Name, err)
 	}
 	fmt.Printf("you (%s) now follow feed: '%s' (%s) has been followed\n", ffr.UserName.String, ffr.FeedName, ffr.FeedUrl)
+	return nil
+}
+func handlerFollowing(s *state, cmd command) error {
+	user, err := s.DB.GetUser(context.Background(), sql.NullString{
+		String: s.Config.CurentUserName,
+		Valid:  true,
+	})
+	if err != nil {
+		return err
+	}
+	following, err := s.DB.GetFeedFollowsByUser(context.Background(), user.ID)
+	if len(following) == 0 {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("could get feeds from %v: \n\r%w", user.Name, err)
+	}
+	for _, feed := range following {
+		fmt.Println("-", feed.Name)
+	}
 	return nil
 }

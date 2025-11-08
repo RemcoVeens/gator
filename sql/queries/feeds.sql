@@ -41,7 +41,7 @@ JOIN feeds f ON nf.feed_id = f.id;
 -- name: GetFeedFromUrl :one
 SELECT * FROM feeds WHERE feeds.url = $1;
 
--- name: getFeedFollowsByUser :many
+-- name: GetFeedFollowsByUser :many
 SELECT f.name,f.id,u.name FROM users u
     INNER JOIN feed_follows ff ON u.id = ff.user_id
     INNER JOIN feeds f ON ff.feed_id = f.id
