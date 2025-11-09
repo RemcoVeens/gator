@@ -131,6 +131,17 @@ func handlerAgg(s *state, cmd command) error {
 
 	return nil
 }
+
+func GetCurrentUser(s *state) (user database.User, err error) {
+	user, err = s.DB.GetUser(context.Background(), sql.NullString{
+		String: s.Config.CurentUserName,
+		Valid:  true,
+	})
+	if err != nil {
+		return
+	}
+	return
+}
 func handlerAddFeed(s *state, cmd command) error {
 	if len(cmd.Args) != 2 {
 		return fmt.Errorf("please provide a name and url to add a feed")
@@ -138,12 +149,9 @@ func handlerAddFeed(s *state, cmd command) error {
 	name := cmd.Args[0]
 	url := cmd.Args[1]
 	fmt.Printf("current user: %s\n", s.Config.CurentUserName)
-	user, err := s.DB.GetUser(context.Background(), sql.NullString{
-		String: s.Config.CurentUserName,
-		Valid:  true,
-	})
+	user, err := GetCurrentUser(s)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not get current user: %w", err)
 	}
 	fmt.Println("ID:", user.ID)
 	feed, err := s.DB.CreateFeed(context.Background(), database.CreateFeedParams{
@@ -194,12 +202,9 @@ func handlerFollow(s *state, cmd command) error {
 	if err != nil {
 		return fmt.Errorf("feed not found")
 	}
-	user, err := s.DB.GetUser(context.Background(), sql.NullString{
-		String: s.Config.CurentUserName,
-		Valid:  true,
-	})
+	user, err := GetCurrentUser(s)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not get current user: %w", err)
 	}
 	ffr, err := s.DB.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
 		ID:        uuid.New(),
@@ -215,12 +220,9 @@ func handlerFollow(s *state, cmd command) error {
 	return nil
 }
 func handlerFollowing(s *state, cmd command) error {
-	user, err := s.DB.GetUser(context.Background(), sql.NullString{
-		String: s.Config.CurentUserName,
-		Valid:  true,
-	})
+	user, err := GetCurrentUser(s)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not get current user: %w", err)
 	}
 	following, err := s.DB.GetFeedFollowsByUser(context.Background(), user.ID)
 	if len(following) == 0 {
