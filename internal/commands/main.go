@@ -8,7 +8,7 @@ import (
 
 	"github.com/RemcoVeens/gator/internal/config"
 	"github.com/RemcoVeens/gator/internal/database"
-	"github.com/RemcoVeens/gator/internal/feed"
+	F "github.com/RemcoVeens/gator/internal/feed"
 	"github.com/google/uuid"
 )
 
@@ -48,6 +48,11 @@ func (c *commands) Run(s *state, cmd command) (err error) {
 func (c *commands) Register(name string, f func(*state, command) error) {
 	c.command[name] = f
 }
+func (c *commands) HasCommand(name string) bool {
+	_, ok := c.command[name]
+	return ok
+}
+
 func NewCommands() commands {
 	comm := commands{}
 	comm.command = make(map[string]func(*state, command) error)
@@ -60,7 +65,7 @@ func NewCommands() commands {
 	comm.Register("feeds", handlerFeeds)
 	comm.Register("follow", handlerFollow)
 	comm.Register("following", handlerFollowing)
-
+	comm.Register("unfollow", handlerUnfollow)
 	return comm
 }
 
@@ -122,14 +127,18 @@ func handlerUsers(s *state, cmd command) error {
 	return nil
 }
 func handlerAgg(s *state, cmd command) error {
-	url := "https://www.wagslane.dev/index.xml"
-	Feed, err := feed.FetchFeed(context.Background(), url)
-	if err != nil {
-		return err
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("please provide a time between fetches")
 	}
-	fmt.Println(*Feed)
-
-	return nil
+	timeBetweenRequests, err := time.ParseDuration(cmd.Args[0])
+	if err != nil {
+		return fmt.Errorf("could not parce time: %w\n", err)
+	}
+	fmt.Printf("Collecting feeds every %v\n\n", timeBetweenRequests)
+	ticker := time.NewTicker(timeBetweenRequests)
+	for ; ; <-ticker.C {
+		ScrapeFeed(s)
+	}
 }
 
 func GetCurrentUser(s *state) (user database.User, err error) {
@@ -234,5 +243,55 @@ func handlerFollowing(s *state, cmd command) error {
 	for _, feed := range following {
 		fmt.Println("-", feed.Name)
 	}
+	return nil
+}
+func handlerUnfollow(s *state, cmd command) error {
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("provide a link to witch you want to unfollow")
+	}
+	url := cmd.Args[0]
+	user, err := GetCurrentUser(s)
+	if err != nil {
+		return fmt.Errorf("could not get current user: %w\n", err)
+	}
+	feed, err := s.DB.GetFeedFromUrl(context.Background(), url)
+	if err != nil {
+		return fmt.Errorf("feed not found")
+	}
+	err = s.DB.UnfollowFeed(context.Background(), database.UnfollowFeedParams{
+		UserID: user.ID,
+		FeedID: feed.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("could not unfollow: %w\n", err)
+	}
+	return nil
+}
+func ScrapeFeed(s *state) error {
+	feed, err := s.DB.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return fmt.Errorf("could not get feed %w\n", err)
+	}
+	println("got feed", feed.Name)
+	err = s.DB.MarkFeedFetched(context.Background(), database.MarkFeedFetchedParams{
+		LastFetchedAt: sql.NullTime{
+			Time:  time.Now(),
+			Valid: true,
+		},
+		ID: feed.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("could not update feed: %w\n", err)
+	}
+	rssFeed, err := F.FetchFeed(context.Background(), feed.Url)
+	if err != nil {
+		return fmt.Errorf("could not fetch feed")
+	}
+	for _, item := range rssFeed.Channel.Items {
+		fmt.Println("-", item.Title)
+	}
+	fmt.Println()
+	fmt.Println()
+
 	return nil
 }

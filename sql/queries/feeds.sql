@@ -46,3 +46,15 @@ SELECT f.name,f.id,u.name FROM users u
     INNER JOIN feed_follows ff ON u.id = ff.user_id
     INNER JOIN feeds f ON ff.feed_id = f.id
     WHERE u.id = $1;
+
+-- name: UnfollowFeed :exec
+DELETE FROM feed_follows
+    WHERE user_id = $1 AND feed_id = $2;
+
+-- name: MarkFeedFetched :exec
+UPDATE feeds SET last_fetched_at = $1, updated_at= $1 WHERE id = $2;
+
+-- name: GetNextFeedToFetch :one
+SELECT * FROM feeds f
+    ORDER BY last_fetched_at NULLS FIRST
+    LIMIT 1;

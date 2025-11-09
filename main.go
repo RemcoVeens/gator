@@ -33,7 +33,10 @@ func main() {
 		os.Exit(1)
 	}
 	stat.DB = database.New(db)
-
+	if !comms.HasCommand(args[0]) {
+		fmt.Printf("Error: Unknown command '%s'\n", comm.Args[0])
+		os.Exit(1)
+	}
 	err = comms.Run(&stat, comm)
 	if err != nil {
 		fmt.Println(err)
