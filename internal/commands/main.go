@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/RemcoVeens/gator/internal/config"
@@ -66,6 +67,7 @@ func NewCommands() commands {
 	comm.Register("follow", handlerFollow)
 	comm.Register("following", handlerFollowing)
 	comm.Register("unfollow", handlerUnfollow)
+	comm.Register("browse", handlerBrowse)
 	return comm
 }
 
@@ -267,12 +269,39 @@ func handlerUnfollow(s *state, cmd command) error {
 	}
 	return nil
 }
+func handlerBrowse(s *state, cmd command) error {
+	user, err := GetCurrentUser(s)
+	if err != nil {
+		return fmt.Errorf("could not get current user")
+	}
+	limit := 2
+	if len(cmd.Args) == 1 {
+		limit, err = strconv.Atoi(cmd.Args[0])
+		if err != nil {
+			return fmt.Errorf("could not parce age: %v \n%w", cmd.Args[0], err)
+		}
+	}
+	posts, err := s.DB.GetPostsForUser(context.Background(), database.GetPostsForUserParams{
+		UserID: user.ID,
+		Limit:  int32(limit),
+	})
+	if err != nil {
+		return fmt.Errorf("could not get post: %w", err)
+	}
+	for _, post := range posts {
+		fmt.Println(post.Title)
+		fmt.Println(post.Description)
+		fmt.Println("publised at", post.PublishedAt)
+		fmt.Println("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-")
+	}
+	return nil
+}
 func ScrapeFeed(s *state) error {
 	feed, err := s.DB.GetNextFeedToFetch(context.Background())
 	if err != nil {
 		return fmt.Errorf("could not get feed %w\n", err)
 	}
-	println("got feed", feed.Name)
+	println("\ngot feed", feed.Name)
 	err = s.DB.MarkFeedFetched(context.Background(), database.MarkFeedFetchedParams{
 		LastFetchedAt: sql.NullTime{
 			Time:  time.Now(),
@@ -289,9 +318,25 @@ func ScrapeFeed(s *state) error {
 	}
 	for _, item := range rssFeed.Channel.Items {
 		fmt.Println("-", item.Title)
+		pubdate, err := time.Parse(time.RFC1123Z, item.PubDate)
+		if err != nil {
+			return fmt.Errorf("could not parce pub date: %w\n", err)
+		}
+		err = s.DB.CreatePost(context.Background(), database.CreatePostParams{
+			ID:          uuid.New(),
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+			Title:       item.Title,
+			Url:         item.Link,
+			Description: item.Description,
+			PublishedAt: pubdate,
+			FeedID:      feed.ID,
+		})
+		if err != nil {
+			fmt.Println(
+				fmt.Errorf("could not insert data from '%s': %w\n", item.Link, err),
+			)
+		}
 	}
-	fmt.Println()
-	fmt.Println()
-
 	return nil
 }
