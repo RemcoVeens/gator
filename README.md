@@ -10,7 +10,7 @@ go install github.com/pressly/goose/v3/cmd/goose@latest
 ## how to install:
 
 ```bash
-go install https://github.com/RemcoVeens/gator.git
+go install www.github.com/RemcoVeens/gator.git@latest
 ```
 
 ## how to use:
